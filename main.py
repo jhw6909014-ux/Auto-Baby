@@ -11,42 +11,31 @@ from email.mime.text import MIMEText
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 GMAIL_USER = os.environ.get("GMAIL_USER")
 GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD")
-BLOGGER_EMAIL = os.environ.get("BLOGGER_EMAIL") # ⚠️ 記得確認這是「母嬰部落格」的信箱
+BLOGGER_EMAIL = os.environ.get("BLOGGER_EMAIL")
 
 # ================= 2. 【賺錢核心】母嬰親子蝦皮連結 =================
-# 我已經把你給的 5 個連結分配到不同類別了
 SHOPEE_LINKS = {
-    # 1. 預設：母嬰館首頁 (當沒對到關鍵字時用這個)
     "default": "https://s.shopee.tw/5L4eMZYBES", 
-    
-    # 2. 尿布與紙品 (高消耗品)
     "diaper": "https://s.shopee.tw/5VO4YsXXtV",
-    "pampers": "https://s.shopee.tw/5VO4YsXXtV", # 幫寶適
-    "huggies": "https://s.shopee.tw/5VO4YsXXtV", # 好奇
-    
-    # 3. 奶粉與副食品
+    "pampers": "https://s.shopee.tw/5VO4YsXXtV",
+    "huggies": "https://s.shopee.tw/5VO4YsXXtV",
     "milk": "https://s.shopee.tw/5fhUlBWuYY",
     "formula": "https://s.shopee.tw/5fhUlBWuYY",
     "food": "https://s.shopee.tw/5fhUlBWuYY",
-    
-    # 4. 玩具與益智
     "toy": "https://s.shopee.tw/5q0uxUWHDb",
     "game": "https://s.shopee.tw/5q0uxUWHDb",
     "lego": "https://s.shopee.tw/5q0uxUWHDb",
-    
-    # 5. 童裝與嬰兒用品
     "baby": "https://s.shopee.tw/9zqTv9GPlQ",
     "clothes": "https://s.shopee.tw/9zqTv9GPlQ",
-    "mom": "https://s.shopee.tw/9zqTv9GPlQ", # 孕婦用品
-    "stroller": "https://s.shopee.tw/9zqTv9GPlQ" # 推車
+    "mom": "https://s.shopee.tw/9zqTv9GPlQ",
+    "stroller": "https://s.shopee.tw/9zqTv9GPlQ"
 }
 
-# ================= 3. AI 設定 (自動偵測可用模型) =================
+# ================= 3. AI 設定 =================
 genai.configure(api_key=GOOGLE_API_KEY)
 
 def get_valid_model():
     try:
-        # 自動尋找你的 API Key 能用的模型，避免 404
         for m in genai.list_models():
             if 'generateContent' in m.supported_generation_methods:
                 if 'gemini' in m.name:
@@ -56,20 +45,16 @@ def get_valid_model():
         return None
 
 model = get_valid_model()
-# 新聞來源：Today's Parent (權威育兒網站)
-RSS_URL = "https://www.todaysparent.com/feed/"
+
+# 🔥 修改重點：換成 Google News RSS (育兒關鍵字)
+RSS_URL = "https://news.google.com/rss/search?q=parenting+tips+newborn&hl=en-US&gl=US&ceid=US:en"
 
 # ================= 4. 親子風格圖片生成 =================
 def get_baby_image(title):
-    """
-    生成「溫馨親子風格」的圖片
-    關鍵字：可愛寶寶、柔和色調、迪士尼皮克斯風格、溫暖光線
-    """
-    magic_prompt = f"{title}, cute baby and parents, soft pastel colors, warm lighting, disney pixar style 3d render, 8k resolution, high quality, cinematic lighting"
+    magic_prompt = f"{title}, cute baby and parents, soft pastel colors, warm lighting, disney pixar style 3d render, 8k resolution, high quality"
     safe_prompt = urllib.parse.quote(magic_prompt)
     seed = int(time.time())
     img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1024&height=600&nologo=true&seed={seed}&model=flux"
-    
     return f'<div style="text-align:center; margin-bottom:20px;"><img src="{img_url}" style="width:100%; max-width:800px; border-radius:12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);"></div>'
 
 # ================= 5. 智慧選連結 =================
@@ -81,7 +66,7 @@ def get_best_link(title, content):
             return link
     return SHOPEE_LINKS["default"]
 
-# ================= 6. AI 寫作 (育兒專家風格) =================
+# ================= 6. AI 寫作 =================
 def ai_process_article(title, summary, shopee_link):
     if not model: return None, None
     print(f"🤖 AI 正在撰寫育兒文章：{title}...")
@@ -109,16 +94,13 @@ def ai_process_article(title, summary, shopee_link):
     try:
         response = model.generate_content(prompt)
         raw_text = response.text.replace("```json", "").replace("```", "").strip()
-        
         import json
         start = raw_text.find('{')
         end = raw_text.rfind('}') + 1
         data = json.loads(raw_text[start:end])
         return data.get("category", "育兒日記"), data.get("html_body", "")
-        
     except Exception as e:
         print(f"❌ AI 處理失敗: {e}")
-        # 備用方案
         return "育兒快訊", f"<p>{summary}</p><br><div style='text-align:center'><a href='{shopee_link}'>點此查看詳情</a></div>"
 
 # ================= 7. 寄信 =================
@@ -126,8 +108,6 @@ def send_email(subject, category, body_html):
     msg = MIMEMultipart()
     msg['From'] = GMAIL_USER
     msg['To'] = BLOGGER_EMAIL
-    
-    # 標題加入 #標籤
     msg['Subject'] = f"{subject} #{category}"
     msg.attach(MIMEText(body_html, 'html'))
 
@@ -143,28 +123,17 @@ def send_email(subject, category, body_html):
 # ================= 8. 主程式 =================
 if __name__ == "__main__":
     print(">>> 系統啟動 (3號店：母嬰親子版)...")
-    
     if not GMAIL_APP_PASSWORD or not model:
-        print("❌ 錯誤：請檢查 Secrets 設定")
         exit(1)
 
     feed = feedparser.parse(RSS_URL)
     if feed.entries:
-        # 抓最新的一篇
         entry = feed.entries[0]
         print(f"📄 處理文章：{entry.title}")
-        
-        # 1. 選連結
         my_link = get_best_link(entry.title, getattr(entry, 'summary', ''))
-        
-        # 2. 產圖
         img_html = get_baby_image(entry.title)
-        
-        # 3. 寫文
         category, text_html = ai_process_article(entry.title, getattr(entry, 'summary', ''), my_link)
-        
         if text_html:
-            final_html = img_html + text_html
-            send_email(entry.title, category, final_html)
+            send_email(entry.title, category, img_html + text_html)
     else:
-        print("📭 無新文章")
+        print("📭 無新文章 (請檢查 RSS)")
